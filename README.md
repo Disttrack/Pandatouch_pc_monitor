@@ -2,8 +2,6 @@
 
 Monitor your PC's vital metrics in real-time on a **BigTreeTech PandaTouch** (ESP32-S3) display. Shows CPU, RAM, GPU, temperatures, disk, VRAM, and FPS — all read directly from your PC via WiFi.
 
-![PandaTouch PC Monitor](https://raw.githubusercontent.com/Disttrack/PandaTouch_PC_Monitor/main/docs/images/preview.jpg)
-
 ## Features
 
 - **CPU**: Usage, frequency, package power, fan RPM
