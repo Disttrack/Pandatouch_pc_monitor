@@ -13,7 +13,6 @@ Monitor your PC's vital metrics in real-time on a **BigTreeTech PandaTouch** (ES
 - **FPS**: Real-time frames per second from any 3D application (via optional PresentMon)
 - **Large temperature display**: Color-coded thermal readout in the top-right corner
 - **WiFi configuration**: Configure WiFi and PC IP directly from the touchscreen
-- **Web Dashboard**: View metrics and update firmware wirelessly via OTA
 
 ## How It Works
 
@@ -44,7 +43,7 @@ The fastest way. You only need a **Chrome-based browser**:
 5. Wait for the process to finish. Your device will reboot.
 
 > [!IMPORTANT]
-> The first flash MUST be `factory.bin` via USB. This writes the bootloader, partition table, and firmware together. Subsequent updates can use `firmware.bin` via OTA.
+> The first flash MUST be `factory.bin` via USB. This writes the bootloader, partition table, and firmware together.
 
 ### Option B: PlatformIO (Advanced)
 
@@ -72,7 +71,7 @@ For developers who want to modify the code:
    ```
 
 > [!NOTE]
-> The first installation requires a USB cable. The project uses a custom partition table (3MB OTA slots) that the stock bootloader may not handle correctly over the air.
+> The first installation requires a USB cable.
 
 ---
 
@@ -112,20 +111,7 @@ For real-time FPS from games and 3D applications:
 
 The script automatically downloads PresentMon 2.4.1 on first run. It sends FPS data to the ESP32 every second.
 
----
 
-## OTA Updates
-
-Once the device is on your WiFi, you can update firmware wirelessly:
-
-1. Access the **Web Dashboard** at the IP shown on the display.
-2. Go to the **Firmware Update** section.
-3. Select the `firmware.bin` from the [Releases](https://github.com/Disttrack/PandaTouch_PC_Monitor/releases) page.
-4. Click **Update**. Wait for the device to reboot.
-
-> **Do not power off** the device during an OTA update.
-
----
 
 ## Troubleshooting
 
@@ -134,7 +120,6 @@ Once the device is on your WiFi, you can update firmware wirelessly:
 | Screen flickering | Low battery — connect the device to its dock or USB charger. |
 | No data on screen | Verify LibreHardwareMonitor is running on your PC with Web Server enabled. |
 | `Connecting...` forever | Check that your PC IP is correct in the WiFi config screen. |
-| OTA update fails | Flash the latest `factory.bin` via USB first, then retry OTA. |
 | FPS shows `--` | Ensure `pc_monitor.py` is running on your PC and the game is active. |
 | PresentMon download fails | Download `PresentMon-2.4.1-x64.exe` manually from [releases](https://github.com/GameTechDev/PresentMon/releases/tag/v2.4.1) and place it next to `pc_monitor.py`. |
 
