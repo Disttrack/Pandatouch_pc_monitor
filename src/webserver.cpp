@@ -44,19 +44,11 @@ void init_webserver() {
     if (webserver_started) return;
     webserver_started = true;
 
-    server.on("/api/metrics", HTTP_POST, [](AsyncWebServerRequest* request) {
-        request->send(200, "text/plain", "OK");
-    }, NULL, [](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
-        if (index == 0) {
-            g_metrics = {0};
-        }
-        String chunk;
-        chunk.reserve(len);
-        for (size_t i = 0; i < len; i++) chunk += (char)data[i];
-
+    server.on("/api/metrics", HTTP_POST, [](AsyncWebServerRequest* request) {},
+    NULL, [](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
         static String buffer;
         if (index == 0) buffer = "";
-        buffer += chunk;
+        for (size_t i = 0; i < len; i++) buffer += (char)data[i];
 
         if (index + len == total) {
             JsonDocument doc;
@@ -64,16 +56,10 @@ void init_webserver() {
             buffer = "";
 
             if (!error) {
-                g_metrics.cpu_percent = doc["cpu"]       | g_metrics.cpu_percent;
-                g_metrics.ram_percent   = doc["ram"]      | g_metrics.ram_percent;
-                g_metrics.gpu_percent   = doc["gpu"]      | g_metrics.gpu_percent;
-                g_metrics.cpu_temp      = doc["cpu_temp"] | g_metrics.cpu_temp;
-                g_metrics.gpu_temp      = doc["gpu_temp"] | g_metrics.gpu_temp;
-                g_metrics.ssd_temp      = doc["ssd_temp"] | g_metrics.ssd_temp;
-                g_metrics.mobo_temp     = doc["mobo_temp"]| g_metrics.mobo_temp;
-                g_metrics.cpu_freq      = doc["cpu_freq"] | g_metrics.cpu_freq;
+                g_metrics.fps = doc["fps"] | g_metrics.fps;
                 g_metrics_updated = true;
             }
+            request->send(200, "text/plain", "OK");
         }
     });
 

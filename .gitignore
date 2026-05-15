@@ -1,2 +1,33 @@
-*.venv
-*.pio
+# PlatformIO
+.pio
+.pioenvs
+.piolibdeps
+.clang_complete
+.gcc-flags.json
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python (Virtualenvs)
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Build artifacts
+*.bin
+*.elf
+build_out*.txt
+
+# PresentMon binary (auto-downloaded)
+PresentMon-*.exe
+
+# Diagnostics
+diagnose_*.py

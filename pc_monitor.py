@@ -1,114 +1,135 @@
 #!/usr/bin/env python3
 """
-PandaTouch PC Monitor — sends live system metrics to the ESP32 dashboard.
+PandaTouch PC Monitor — sends FPS to the ESP32 dashboard.
+Uses PresentMon (ETW-based) to capture FPS from any 3D application.
 """
 
 import argparse
-import json
+import csv
+import io
+import os
+import sys
 import time
 import requests
-import psutil
-
-try:
-    import gputil
-    HAS_GPUTIL = True
-except ImportError:
-    HAS_GPUTIL = False
+import subprocess
+import urllib.request
 
 DEFAULT_HOST = "192.168.20.240"
 DEFAULT_INTERVAL = 1.0
+PM_URL = "https://github.com/GameTechDev/PresentMon/releases/download/v2.4.1/PresentMon-2.4.1-x64.exe"
+PM_EXE = "PresentMon-2.4.1-x64.exe"
 
 
-def get_gpu_percent():
-    if not HAS_GPUTIL:
-        return 0.0
+def ensure_presentmon():
+    """Download PresentMon if not already present."""
+    local = os.path.join(os.path.dirname(__file__), PM_EXE)
+    if os.path.exists(local):
+        return local
+
+    print(f"Downloading PresentMon from {PM_URL}...")
     try:
-        gpus = gputil.getGPUs()
-        return gpus[0].load * 100.0 if gpus else 0.0
-    except Exception:
-        return 0.0
+        urllib.request.urlretrieve(PM_URL, local)
+        os.chmod(local, 0o755)
+        print(f"Saved to {local}")
+        return local
+    except Exception as e:
+        print(f"Download failed: {e}")
+        return None
 
 
-def get_gpu_temp():
-    if not HAS_GPUTIL:
-        return 0.0
-    try:
-        gpus = gputil.getGPUs()
-        return gpus[0].temperature if gpus else 0.0
-    except Exception:
-        return 0.0
+def send_fps(host, interval):
+    local_pm = ensure_presentmon()
+    if not local_pm:
+        print("PresentMon not available. Cannot capture FPS.")
+        return
 
-
-def get_temps():
-    temps = {"cpu": 0.0, "gpu": 0.0, "ssd": 0.0, "mobo": 0.0}
-    if hasattr(psutil, "sensors_temperatures"):
-        all_temps = psutil.sensors_temperatures()
-        for name, entries in all_temps.items():
-            if not entries:
-                continue
-            val = entries[0].current
-            name_lower = name.lower()
-            if "core" in name_lower or "cpu" in name_lower or "k10temp" in name_lower or "coretemp" in name_lower:
-                temps["cpu"] = val
-            elif "gpu" in name_lower or "nvidia" in name_lower or "radeo" in name_lower:
-                temps["gpu"] = val
-            elif "nvme" in name_lower or "ssd" in name_lower or "disk" in name_lower:
-                temps["ssd"] = val
-            elif "motherboard" in name_lower or "acpitz" in name_lower or "pch" in name_lower:
-                temps["mobo"] = val
-    if temps["gpu"] == 0.0:
-        temps["gpu"] = get_gpu_temp()
-    return temps
-
-
-def get_cpu_freq():
-    try:
-        freq = psutil.cpu_freq()
-        return freq.current if freq else 0.0
-    except Exception:
-        return 0.0
-
-
-def send_metrics(host, interval):
     url = f"http://{host}/api/metrics"
-    print(f"Sending metrics to {url} every {interval}s (Ctrl+C to stop)")
-    while True:
-        try:
-            cpu = psutil.cpu_percent(interval=0.5)
-            ram = psutil.virtual_memory()
-            temps = get_temps()
+    print(f"Sending FPS to {url} every {interval}s (Ctrl+C to stop)")
+    print(f"Using PresentMon: {local_pm}")
+    sys.stdout.flush()
 
-            payload = {
-                "cpu": cpu,
-                "ram": ram.percent,
-                "gpu": get_gpu_percent(),
-                "cpu_temp": temps["cpu"],
-                "gpu_temp": temps["gpu"],
-                "ssd_temp": temps["ssd"],
-                "mobo_temp": temps["mobo"],
-                "cpu_freq": get_cpu_freq(),
-            }
+    proc = subprocess.Popen(
+        [local_pm, "--output_stdout", "--terminate_on_proc_exit"],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        bufsize=1, universal_newlines=True
+    )
 
-            r = requests.post(url, json=payload, timeout=5)
-            print(f"Sent: CPU={cpu:.0f}% RAM={ram.percent:.0f}% GPU={payload['gpu']:.0f}% | "
-                  f"Temps CPU={temps['cpu']:.0f}C GPU={temps['gpu']:.0f}C "
-                  f"SSD={temps['ssd']:.0f}C MoBo={temps['mobo']:.0f}C "
-                  f"Freq={payload['cpu_freq']:.0f}MHz | HTTP {r.status_code}")
-        except KeyboardInterrupt:
-            print("\nStopped.")
+    time.sleep(2)
+    poll = proc.poll()
+    if poll is not None:
+        stderr = proc.stderr.read()
+        print(f"PresentMon exited with code {poll}")
+        if stderr:
+            print(f"Stderr: {stderr}")
+        return
+
+    # Read CSV header to find MsBetweenPresents column
+    header_line = None
+    for line in proc.stdout:
+        line = line.strip()
+        if line:
+            header_line = line
             break
-        except Exception as e:
-            print(f"Error: {e}")
 
-        time.sleep(interval)
+    if not header_line:
+        print("No CSV header from PresentMon")
+        return
+
+    columns = [c.strip() for c in header_line.split(",")]
+    try:
+        col_idx = columns.index("MsBetweenPresents")
+    except ValueError:
+        print(f"MsBetweenPresents not found in CSV columns: {columns}")
+        return
+
+    fps_values = []
+    last_report = time.time()
+
+    try:
+        for line in proc.stdout:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+
+            try:
+                parts = next(csv.reader(io.StringIO(line)))
+                if len(parts) > col_idx:
+                    ms = float(parts[col_idx].strip())
+                    if ms > 0 and ms < 1000:
+                        fps_values.append(1000.0 / ms)
+            except (ValueError, IndexError, StopIteration):
+                pass
+
+            now = time.time()
+            if now - last_report >= interval:
+                last_report = now
+                avg_fps = sum(fps_values) / len(fps_values) if fps_values else 0.0
+                fps_values = []
+
+                payload = {"fps": round(avg_fps, 1)}
+                try:
+                    r = requests.post(url, json=payload, timeout=5)
+                    print(f"FPS: {avg_fps:.0f} | HTTP {r.status_code}")
+                except Exception as e:
+                    print(f"POST error: {e}")
+    except KeyboardInterrupt:
+        print("\nStopping...")
+    finally:
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="PandaTouch PC Monitor sender")
+    parser = argparse.ArgumentParser(description="PandaTouch FPS sender (PresentMon)")
     parser.add_argument("--host", default=DEFAULT_HOST, help="ESP32 IP address")
-    parser.add_argument("--interval", type=float, default=DEFAULT_INTERVAL, help="Seconds between updates")
+    parser.add_argument("--interval", type=float, default=DEFAULT_INTERVAL,
+                        help="Seconds between FPS updates")
     args = parser.parse_args()
-    send_metrics(args.host, args.interval)
+    send_fps(args.host, args.interval)
 
 
 if __name__ == "__main__":

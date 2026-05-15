@@ -7,6 +7,7 @@ static lv_obj_t* g_wifi_screen = nullptr;
 static lv_obj_t* g_wifi_kb = nullptr;
 static lv_obj_t* g_wifi_ssid_ta = nullptr;
 static lv_obj_t* g_wifi_pass_ta = nullptr;
+static lv_obj_t* g_wifi_pcip_ta = nullptr;
 
 static void back_btn_cb(lv_event_t* e) {
     (void)e;
@@ -23,6 +24,7 @@ static void save_wifi_cb(lv_event_t* e) {
 
     strncpy(g_wifi_ssid, lv_textarea_get_text(g_wifi_ssid_ta), 31);
     strncpy(g_wifi_pass, lv_textarea_get_text(g_wifi_pass_ta), 63);
+    g_pc_ip = lv_textarea_get_text(g_wifi_pcip_ta);
 
     save_settings();
 
@@ -64,9 +66,18 @@ void create_wifi_ui() {
     lv_obj_set_style_text_font(g_wifi_pass_ta, &lv_font_montserrat_16, LV_PART_MAIN);
     lv_obj_add_event_cb(g_wifi_pass_ta, ta_event_cb, LV_EVENT_FOCUSED, NULL);
 
+    g_wifi_pcip_ta = lv_textarea_create(g_wifi_screen);
+    lv_textarea_set_one_line(g_wifi_pcip_ta, true);
+    lv_textarea_set_placeholder_text(g_wifi_pcip_ta, "PC IP (LHM)");
+    if (g_pc_ip.length() > 0) lv_textarea_set_text(g_wifi_pcip_ta, g_pc_ip.c_str());
+    lv_obj_set_size(g_wifi_pcip_ta, 760, 50);
+    lv_obj_align(g_wifi_pcip_ta, LV_ALIGN_TOP_MID, 0, 90);
+    lv_obj_set_style_text_font(g_wifi_pcip_ta, &lv_font_montserrat_16, LV_PART_MAIN);
+    lv_obj_add_event_cb(g_wifi_pcip_ta, ta_event_cb, LV_EVENT_FOCUSED, NULL);
+
     lv_obj_t* save_btn = lv_btn_create(g_wifi_screen);
     lv_obj_set_size(save_btn, 160, 50);
-    lv_obj_align(save_btn, LV_ALIGN_TOP_MID, 0, 90);
+    lv_obj_align(save_btn, LV_ALIGN_TOP_MID, 0, 160);
     lv_obj_set_style_bg_color(save_btn, lv_color_hex(0x4CAF50), LV_PART_MAIN);
     lv_obj_set_style_radius(save_btn, 8, LV_PART_MAIN);
 
@@ -79,7 +90,7 @@ void create_wifi_ui() {
 
     lv_obj_t* back_btn = lv_btn_create(g_wifi_screen);
     lv_obj_set_size(back_btn, 80, 40);
-    lv_obj_align(back_btn, LV_ALIGN_TOP_LEFT, 20, 90);
+    lv_obj_align(back_btn, LV_ALIGN_TOP_LEFT, 20, 160);
     lv_obj_set_style_bg_color(back_btn, lv_color_hex(0x333333), LV_PART_MAIN);
     lv_obj_set_style_radius(back_btn, 6, LV_PART_MAIN);
 

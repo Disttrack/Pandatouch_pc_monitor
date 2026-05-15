@@ -8,6 +8,7 @@ char g_wifi_pass[64] = "";
 uint8_t g_brightness = 80;
 uint32_t g_bg_color = 0x0A0A0A;
 String g_ip_addr = "0.0.0.0";
+String g_pc_ip = "";
 
 void init_storage() {
     if (!LittleFS.begin(true)) {
@@ -23,6 +24,7 @@ void load_settings() {
     preferences.getString("wifi_pass", g_wifi_pass, 63);
     g_brightness = preferences.getUChar("brightness", 80);
     g_bg_color = preferences.getUInt("bg_color", 0x0A0A0A);
+    g_pc_ip = preferences.getString("pc_ip", "");
     preferences.end();
 
     if (strlen(g_wifi_ssid) > 0) {
@@ -38,5 +40,6 @@ void save_settings() {
     preferences.putString("wifi_pass", g_wifi_pass);
     preferences.putUChar("brightness", g_brightness);
     preferences.putUInt("bg_color", g_bg_color);
+    preferences.putString("pc_ip", g_pc_ip);
     preferences.end();
 }
