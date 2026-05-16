@@ -59,7 +59,7 @@ extern volatile bool pt_display_suspended;
  *  Backlight (LEDC) Config
  * ========================= */
 
-static uint8_t pt_backlight_percent = 100;
+static uint8_t pt_backlight_percent = 75;
 
 /* =========================
  *  Helpers
@@ -293,6 +293,7 @@ inline void pt_setup_display(PT_LVGL_render_method_t mode = (PT_LVGL_render_meth
       lv_display_set_buffers(disp, pt_disp_draw_buf, NULL, bufSize * sizeof(lv_color_t), LV_DISPLAY_RENDER_MODE_FULL);
       break;
     }
+    // FULL_1 failed, fall through to PARTIAL_1
 
   case PT_LVGL_RENDER_FULL_2:
     bufSize = screenWidth * screenHeight;
@@ -302,6 +303,17 @@ inline void pt_setup_display(PT_LVGL_render_method_t mode = (PT_LVGL_render_meth
     if (pt_disp_draw_buf && pt_disp_draw_buf2)
     {
       lv_display_set_buffers(disp, pt_disp_draw_buf, pt_disp_draw_buf2, bufSize * sizeof(lv_color_t), LV_DISPLAY_RENDER_MODE_FULL);
+      break;
+    }
+    // FULL_2 failed, try single-buffer full fallback
+    if (!pt_disp_draw_buf)
+    {
+      pt_disp_draw_buf2 = NULL;
+      pt_disp_draw_buf = alloc_buf(bufSize, true);
+    }
+    if (pt_disp_draw_buf)
+    {
+      lv_display_set_buffers(disp, pt_disp_draw_buf, NULL, bufSize * sizeof(lv_color_t), LV_DISPLAY_RENDER_MODE_FULL);
       break;
     }
 

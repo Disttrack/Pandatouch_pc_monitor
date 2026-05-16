@@ -13,6 +13,7 @@
 
 PCMetrics g_metrics = {0};
 volatile bool g_metrics_updated = false;
+SemaphoreHandle_t g_metrics_mutex = NULL;
 
 // ── PSRAM allocator for ArduinoJson ──
 class PSRAMAlloc : public ArduinoJson::Allocator {
@@ -126,7 +127,6 @@ static void walk_lhm_tree(JsonObject obj, PCMetrics& m, const String& ctx = "") 
         }
     }
 
-    // Recurse into children, passing current text as context
     JsonArray children = obj["Children"].as<JsonArray>();
     if (children) {
         for (JsonVariant child : children) {
@@ -208,7 +208,9 @@ void fetch_lhm_data() {
             if (m.vram_total_gb > 0)
                 m.vram_percent = (m.vram_used_gb / m.vram_total_gb) * 100.0f;
             m.fps = g_metrics.fps;
+            if (g_metrics_mutex) xSemaphoreTake(g_metrics_mutex, portMAX_DELAY);
             g_metrics = m;
+            if (g_metrics_mutex) xSemaphoreGive(g_metrics_mutex);
             g_metrics_updated = true;
             Serial.printf("LHM: updated cpu=%.0f gpu=%.0f cpu_t=%.0f gpu_t=%.0f\n",
                           m.cpu_percent, m.gpu_percent, m.cpu_temp, m.gpu_temp);
@@ -222,15 +224,34 @@ void fetch_lhm_data() {
     heap_caps_free(buf);
 }
 
+// ── Core 0 fetch task ──
+
+static TaskHandle_t s_fetch_task = NULL;
+
+static void fetch_task_fn(void* param) {
+    esp_task_wdt_add(NULL);
+    while (1) {
+        fetch_lhm_data();
+        delay(500);
+        esp_task_wdt_reset();
+    }
+}
+
 // ── Setup & Loop ──
 
 void MonitorApp::setup() {
     init_storage();
 
+    g_metrics_mutex = xSemaphoreCreateMutex();
+
     create_monitor_ui();
+
+    WiFi.setSleep(false);
 
     ArduinoOTA.setHostname("pandatouch-monitor");
     ArduinoOTA.begin();
+
+    xTaskCreatePinnedToCore(fetch_task_fn, "lhm_fetch", 8192, NULL, 1, &s_fetch_task, 0);
 }
 
 void MonitorApp::loop() {
@@ -243,9 +264,8 @@ void MonitorApp::loop() {
 
     check_wifi_status();
 
-    fetch_lhm_data();
-
     if (g_metrics_updated) {
+        g_metrics_updated = false;
         update_monitor_ui();
     }
     ArduinoOTA.handle();
@@ -253,3 +273,4 @@ void MonitorApp::loop() {
     yield();
     esp_task_wdt_reset();
 }
+

@@ -12,7 +12,7 @@ void setup() {
     setCpuFrequencyMhz(240);
 
     Serial.println("\n\n=== PandaTouch PC Monitor Starting ===");
-    pt_setup_display(PT_LVGL_RENDER_PARTIAL_1);
+    pt_setup_display(PT_LVGL_RENDER_PARTIAL_2_PSRAM);
 
     WiFi.mode(WIFI_STA);
     MonitorApp::setup();
